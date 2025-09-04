@@ -1,0 +1,8 @@
+---
+- name: Server Health Monitoring
+  hosts: servers
+  gather_facts: yes
+
+  roles:
+    - host_report
+    - fastapi_health

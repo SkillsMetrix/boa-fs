@@ -1,0 +1,72 @@
+---
+- name: Ensure Python3 and pip installed
+  become: yes
+  ansible.builtin.apt:
+    name: python3-pip
+    state: present
+    update_cache: yes
+
+- name: Install FastAPI & Uvicorn via apt
+  become: yes
+  ansible.builtin.apt:
+    name:
+      - python3-fastapi
+      - python3-uvicorn
+      - python3-psutil
+    state: present
+    update_cache: yes
+
+- name: Create FastAPI app directory
+  become: yes
+  ansible.builtin.file:
+    path: /opt/fastapi-health
+    state: directory
+    mode: "0755"
+
+- name: Deploy FastAPI health app
+  become: yes
+  ansible.builtin.copy:
+    dest: /opt/fastapi-health/app.py
+    content: |
+      from fastapi import FastAPI
+      import psutil, socket
+
+      app = FastAPI()
+
+      @app.get("/health")
+      def health():
+          try:
+              ip = socket.gethostbyname(socket.gethostname())
+          except:
+              ip = "N/A"
+          return {
+              "hostname": socket.gethostname(),
+              "ip": ip,
+              "cpu_usage": psutil.cpu_percent(interval=1),
+              "memory_usage": psutil.virtual_memory().percent,
+              "disk_usage": psutil.disk_usage('/').percent
+          }
+
+- name: Create systemd service for FastAPI
+  become: yes
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/fastapi-health.service
+    content: |
+      [Unit]
+      Description=FastAPI Health Service
+      After=network.target
+
+      [Service]
+      ExecStart=/usr/bin/python3 -m uvicorn app:app --host 0.0.0.0 --port 8000 --app-dir /opt/fastapi-health
+      Restart=always
+
+      [Install]
+      WantedBy=multi-user.target
+
+- name: Reload systemd and enable FastAPI service
+  become: yes
+  ansible.builtin.systemd:
+    name: fastapi-health
+    state: restarted
+    enabled: true
+    daemon_reload: true

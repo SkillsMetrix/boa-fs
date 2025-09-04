@@ -1,0 +1,4 @@
+---
+- name: High CPU Alert
+  debug:
+    msg: "CPU usage exceeded threshold on {{ inventory_hostname }}"
